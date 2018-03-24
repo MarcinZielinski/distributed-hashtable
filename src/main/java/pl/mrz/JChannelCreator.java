@@ -2,21 +2,13 @@ package pl.mrz;
 
 import org.jgroups.JChannel;
 import org.jgroups.protocols.*;
-import org.jgroups.protocols.pbcast.FLUSH;
-import org.jgroups.protocols.pbcast.GMS;
-import org.jgroups.protocols.pbcast.NAKACK2;
-import org.jgroups.protocols.pbcast.STABLE;
+import org.jgroups.protocols.pbcast.*;
 import org.jgroups.stack.ProtocolStack;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 public class JChannelCreator {
-    private String channelName;
-
-    public JChannelCreator(String channelName)  {
-        this.channelName = channelName;
-    }
 
     public JChannel getChannel() {
         JChannel channel = null;
@@ -26,7 +18,6 @@ public class JChannelCreator {
             channel.setProtocolStack(stack);
             addProtocols(stack);
             stack.init();
-            channel.connect(channelName);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -34,7 +25,7 @@ public class JChannelCreator {
     }
 
     private void addProtocols(ProtocolStack stack) throws UnknownHostException {
-        stack.addProtocol(new UDP().setValue("mcast_group_addr", InetAddress.getByName("230.0.0.133")))
+        stack.addProtocol(new UDP().setValue("mcast_group_addr", InetAddress.getByName("224.0.0.133")))
                 .addProtocol(new PING())
                 .addProtocol(new MERGE3())
                 .addProtocol(new FD_SOCK())
@@ -48,6 +39,7 @@ public class JChannelCreator {
                 .addProtocol(new UFC())
                 .addProtocol(new MFC())
                 .addProtocol(new FRAG2())
+                .addProtocol(new STATE_TRANSFER())
                 .addProtocol(new SEQUENCER()) // porzadkowanie komunikatow
                 .addProtocol(new FLUSH()); // porzadkowanie komunikatow
     }

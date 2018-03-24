@@ -1,7 +1,13 @@
 package pl.mrz;
 
 import org.jgroups.JChannel;
+import org.jgroups.Message;
+import org.jgroups.ReceiverAdapter;
+import org.jgroups.View;
+import org.jgroups.util.Util;
 
+import java.io.*;
+import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -9,37 +15,118 @@ public class DistributedMap implements SimpleStringMap {
 
     private JChannel channel;
     private String channelName;
-    private Map<String, String> map;
+    private final Map<String, String> map;
 
 
     public DistributedMap(String channelName) {
         this.channelName = channelName;
-        this.channel = new JChannelCreator(channelName).getChannel();
+        this.channel = new JChannelCreator().getChannel();
         this.map = new HashMap<>();
+        registerListener();
+        connect();
         synchronize();
+        eventLoop();
+    }
+
+    private void eventLoop() {
+        BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+        while (true) {
+            try {
+                System.out.print("> ");
+                System.out.flush();
+                String line = in.readLine().toLowerCase();
+                if (line.startsWith("quit") || line.startsWith("exit"))
+                    break;
+                if(line.startsWith("view"))
+                    System.out.println(map);
+                Message msg = new Message(null, null, new AbstractMap.SimpleImmutableEntry<>(line.split(" ")[0], line.split(" ")[1]));
+                channel.send(msg);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private void connect() {
+        try {
+            channel.connect(channelName);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void registerListener() {
+        channel.setReceiver(new ReceiverAdapter() {
+            public void receive(Message msg) {
+                Map.Entry<String, String> entry = (Map.Entry<String, String>) msg.getObject();
+                synchronized (map) {
+                    map.put(entry.getKey(), entry.getValue());
+                }
+                System.out.println("received entry " + msg);
+            }
+
+            public void viewAccepted(View view) {
+                System.out.println("received view " + view);
+            }
+
+            // called in the state provider
+            public void getState(OutputStream output) throws Exception {
+                synchronized (map) {
+                    Util.objectToStream(map, new DataOutputStream(output));
+                }
+            }
+
+            // called on the state requester
+            public void setState(InputStream input) throws Exception {
+                Map<String, String> state;
+                state = (Map<String, String>) Util.objectFromStream(new DataInputStream(input));
+                synchronized (map) {
+                    map.clear();
+                    map.putAll(state);
+                }
+                System.out.println(map.size() + " entries in distributed hash map):");
+                for (Map.Entry<String, String> str : map.entrySet()) {
+                    System.out.println(str);
+                }
+            }
+        });
     }
 
     private void synchronize() {
-
+        try {
+            channel.getState(null, 10_000);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
-    public boolean containsKey(String key) {
+    public synchronized boolean containsKey(String key) {
         return map.containsKey(key);
     }
 
     @Override
-    public String get(String key) {
+    public synchronized String get(String key) {
         return map.get(key);
     }
 
     @Override
     public String put(String key, String value) {
-        return map.put(key, value);
+        String res = null;
+        try {
+            Map.Entry<String, String> newEntry = new AbstractMap.SimpleImmutableEntry<>(key, value);
+            Message msg = new Message(null, null, newEntry);
+            channel.send(msg);
+            synchronized(this) {
+                res = map.put(key, value);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return res;
     }
 
     @Override
-    public String remove(String key) {
+    public synchronized String remove(String key) {
         return map.remove(key);
     }
 }

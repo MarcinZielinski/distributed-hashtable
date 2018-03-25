@@ -1,15 +1,16 @@
 package pl.mrz;
 
-import javafx.collections.FXCollections;
+import javafx.application.Platform;
 import javafx.collections.MapChangeListener;
 import javafx.collections.ObservableMap;
-import javafx.collections.SetChangeListener;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 
 public class MainSceneController {
 
@@ -35,22 +36,20 @@ public class MainSceneController {
 
     public void setModel(MainScene model) {
         this.model = model;
-        //FXCollections.observableMap(model.getDistributedMap().getHashMap()).addListener((SetChangeListener.Change<? extends String> c) -> {
         map = model.getDistributedMap().getHashMap();
+        mapListView.getItems().addAll(map.keySet());
         map.addListener((MapChangeListener.Change<? extends String, ? extends String> c) -> {
             if (c.wasAdded()) {
-                mapListView.getItems().add(c.getKey());
+                Platform.runLater(() -> mapListView.getItems().add(c.getKey()));
             }
             if (c.wasRemoved()) {
-                mapListView.getItems().remove(c.getKey());
+                Platform.runLater(() -> mapListView.getItems().remove(c.getKey()));
             }
         });
     }
 
     public void putClicked(ActionEvent actionEvent) {
-        model.getDistributedMap().put(keyTextField.getText(), valueTextField.getText());
-        keyTextField.clear();
-        valueTextField.clear();
+        putItem();
     }
 
     public void removeClicked(ActionEvent actionEvent) {
@@ -59,5 +58,17 @@ public class MainSceneController {
 
     public void getClicked(ActionEvent actionEvent) {
         getLabel.setText(model.getDistributedMap().get(mapListView.getSelectionModel().getSelectedItem()));
+    }
+
+    public void enterHandle(KeyEvent keyEvent) {
+        if (keyEvent.getCode() == KeyCode.ENTER && !putButton.isDisabled()) {
+            putItem();
+        }
+    }
+
+    private void putItem() {
+        model.getDistributedMap().put(keyTextField.getText(), valueTextField.getText());
+        keyTextField.clear();
+        valueTextField.clear();
     }
 }

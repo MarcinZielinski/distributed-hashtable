@@ -38,7 +38,7 @@ public class DistributedMap implements SimpleStringMap {
                 String line = in.readLine().toLowerCase();
                 if (line.startsWith("quit") || line.startsWith("exit"))
                     break;
-                if(line.startsWith("view"))
+                if (line.startsWith("view"))
                     System.out.println(map);
                 Message msg = new Message(null, null, new AbstractMap.SimpleImmutableEntry<>(line.split(" ")[0], line.split(" ")[1]));
                 channel.send(msg);
@@ -117,7 +117,7 @@ public class DistributedMap implements SimpleStringMap {
             Map.Entry<String, String> newEntry = new AbstractMap.SimpleImmutableEntry<>(key, value);
             Message msg = new Message(null, null, newEntry);
             channel.send(msg);
-            synchronized(this) {
+            synchronized (this) {
                 res = map.put(key, value);
             }
         } catch (Exception e) {

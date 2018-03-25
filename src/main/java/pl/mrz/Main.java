@@ -16,7 +16,7 @@ public class Main extends Application {
     @Override
     public void start(Stage primaryStage) throws Exception {
         stage = primaryStage;
-        primaryStage.setTitle("FLSocial");
+        primaryStage.setTitle("Distributed HashMap");
         primaryStage.show();
         loadMainScene();
     }

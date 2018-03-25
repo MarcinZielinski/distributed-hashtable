@@ -22,6 +22,8 @@ public class MainSceneController {
     public Button removeButton;
     public Button getButton;
     public Label getLabel;
+    public TextField containsKeyTextField;
+    public Label containsKeyLabel;
 
 
     private MainScene model;
@@ -70,5 +72,9 @@ public class MainSceneController {
         model.getDistributedMap().put(keyTextField.getText(), valueTextField.getText());
         keyTextField.clear();
         valueTextField.clear();
+    }
+
+    public void containsKeyTyped(KeyEvent keyEvent) {
+        containsKeyLabel.setText(map.containsKey(containsKeyTextField.getText()) ? "Yes" : "No");
     }
 }

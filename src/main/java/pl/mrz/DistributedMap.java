@@ -1,5 +1,7 @@
 package pl.mrz;
 
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableMap;
 import org.jgroups.JChannel;
 import org.jgroups.Message;
 import org.jgroups.ReceiverAdapter;
@@ -10,22 +12,21 @@ import java.io.*;
 import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 public class DistributedMap implements SimpleStringMap {
 
     private JChannel channel;
     private String channelName;
-    private final Map<String, String> map;
-
+    private final ObservableMap<String, String> map;
 
     public DistributedMap(String channelName) {
         this.channelName = channelName;
         this.channel = new JChannelCreator().getChannel();
-        this.map = new HashMap<>();
+        this.map = FXCollections.observableHashMap();
         registerListener();
         connect();
         synchronize();
-        eventLoop();
     }
 
     private void eventLoop() {
@@ -71,7 +72,7 @@ public class DistributedMap implements SimpleStringMap {
             // called in the state provider
             public void getState(OutputStream output) throws Exception {
                 synchronized (map) {
-                    Util.objectToStream(map, new DataOutputStream(output));
+                    Util.objectToStream(new HashMap<>(map), new DataOutputStream(output));
                 }
             }
 
@@ -128,5 +129,13 @@ public class DistributedMap implements SimpleStringMap {
     @Override
     public synchronized String remove(String key) {
         return map.remove(key);
+    }
+
+    public Set<String> getKeySet() {
+        return map.keySet();
+    }
+
+    public ObservableMap<String, String> getHashMap() {
+        return map;
     }
 }

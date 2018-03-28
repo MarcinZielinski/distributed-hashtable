@@ -2,18 +2,18 @@ package pl.mrz;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableMap;
-import org.jgroups.JChannel;
-import org.jgroups.Message;
-import org.jgroups.ReceiverAdapter;
-import org.jgroups.View;
+import org.jgroups.*;
 import org.jgroups.util.Util;
 import pl.mrz.operation.Operation;
 import pl.mrz.operation.PutOperation;
 import pl.mrz.operation.RemoveOperation;
 
-import java.io.*;
-import java.util.AbstractMap;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -30,24 +30,6 @@ public class DistributedMap implements SimpleStringMap {
         registerListener();
         connect();
         synchronize();
-    }
-
-    private void eventLoop() {
-        BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
-        while (true) {
-            try {
-                System.out.print("> ");
-                System.out.flush();
-                String line = in.readLine().toLowerCase();
-                if (line.startsWith("quit") || line.startsWith("exit"))
-                    break;
-                if (line.startsWith("view"))
-                    System.out.println(map);
-                Message msg = new Message(null, null, new AbstractMap.SimpleImmutableEntry<>(line.split(" ")[0], line.split(" ")[1]));
-                channel.send(msg);
-            } catch (Exception ignored) {
-            }
-        }
     }
 
     private void connect() {
@@ -70,6 +52,12 @@ public class DistributedMap implements SimpleStringMap {
 
             public void viewAccepted(View view) {
                 System.out.println("received view " + view);
+                if (view instanceof MergeView) {
+                    MergeView tmp = (MergeView) view;
+                    ViewHandler handler = new ViewHandler(channel, (MergeView) view);
+                    // requires separate thread as we don't want to block JGroups
+                    handler.start();
+                }
             }
 
             // called in the state provider
@@ -117,7 +105,6 @@ public class DistributedMap implements SimpleStringMap {
     public String put(String key, String value) {
         String res = null;
         try {
-            //Map.Entry<String, String> newEntry = new AbstractMap.SimpleImmutableEntry<>(key, value);
             Operation operation = new PutOperation(key, value);
             Message msg = new Message(null, null, operation);
             channel.send(msg);
@@ -146,11 +133,34 @@ public class DistributedMap implements SimpleStringMap {
         return res;
     }
 
-    public Set<String> getKeySet() {
-        return map.keySet();
-    }
-
     public ObservableMap<String, String> getHashMap() {
         return map;
+    }
+
+    private static class ViewHandler extends Thread {
+        JChannel ch;
+        MergeView view;
+
+        private ViewHandler(JChannel ch, MergeView view) {
+            this.ch = ch;
+            this.view = view;
+        }
+
+        public void run() {
+            List<View> subgroups = view.getSubgroups();
+            View tmp_view = subgroups.get(0); // picks the first
+            Address local_addr = ch.getAddress();
+            if (!tmp_view.getMembers().contains(local_addr)) {
+                System.out.println("Not member of the new primary partition ("
+                        + tmp_view + "), will re-acquire the state");
+                try {
+                    ch.getState(null, 30000);
+                } catch (Exception ignored) {
+                }
+            } else {
+                System.out.println("Not member of the new primary partition ("
+                        + tmp_view + "), will do nothing");
+            }
+        }
     }
 }

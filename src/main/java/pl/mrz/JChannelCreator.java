@@ -39,8 +39,6 @@ public class JChannelCreator {
                 .addProtocol(new UFC())
                 .addProtocol(new MFC())
                 .addProtocol(new FRAG2())
-                .addProtocol(new STATE_TRANSFER())
-                .addProtocol(new SEQUENCER()) // porzadkowanie komunikatow
-                .addProtocol(new FLUSH()); // porzadkowanie komunikatow
+                .addProtocol(new STATE_TRANSFER());
     }
 }

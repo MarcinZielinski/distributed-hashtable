@@ -7,6 +7,9 @@ import org.jgroups.Message;
 import org.jgroups.ReceiverAdapter;
 import org.jgroups.View;
 import org.jgroups.util.Util;
+import pl.mrz.operation.Operation;
+import pl.mrz.operation.PutOperation;
+import pl.mrz.operation.RemoveOperation;
 
 import java.io.*;
 import java.util.AbstractMap;
@@ -58,9 +61,9 @@ public class DistributedMap implements SimpleStringMap {
     private void registerListener() {
         channel.setReceiver(new ReceiverAdapter() {
             public void receive(Message msg) {
-                Map.Entry<String, String> entry = (Map.Entry<String, String>) msg.getObject();
+                Operation operation = (Operation) msg.getObject();
                 synchronized (map) {
-                    map.put(entry.getKey(), entry.getValue());
+                    operation.processMap(map);
                 }
                 System.out.println("received entry " + msg);
             }
@@ -114,8 +117,9 @@ public class DistributedMap implements SimpleStringMap {
     public String put(String key, String value) {
         String res = null;
         try {
-            Map.Entry<String, String> newEntry = new AbstractMap.SimpleImmutableEntry<>(key, value);
-            Message msg = new Message(null, null, newEntry);
+            //Map.Entry<String, String> newEntry = new AbstractMap.SimpleImmutableEntry<>(key, value);
+            Operation operation = new PutOperation(key, value);
+            Message msg = new Message(null, null, operation);
             channel.send(msg);
             synchronized (this) {
                 res = map.put(key, value);
@@ -128,7 +132,18 @@ public class DistributedMap implements SimpleStringMap {
 
     @Override
     public synchronized String remove(String key) {
-        return map.remove(key);
+        String res = null;
+        try {
+            Operation operation = new RemoveOperation(key);
+            Message msg = new Message(null, null, operation);
+            channel.send(msg);
+            synchronized (this) {
+                res = map.remove(key);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return res;
     }
 
     public Set<String> getKeySet() {
